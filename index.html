@@ -104,8 +104,8 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);paddin
 
 <script>
 /* ===== CONFIGURA AQUÍ (Supabase → Project Settings → API) ===== */
-const SUPABASE_URL = "https://TU-PROYECTO.supabase.co";
-const SUPABASE_ANON_KEY = "TU-ANON-KEY";
+const SUPABASE_URL = "https://gxnmwsbgiaeqkisqumzz.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_gBGF53AFVBlIffltSrLG9A_wBxPhYFO";
 /* =============================================================== */
 
 const D={"Albania":"IgsUBB5JXCdbWl0f","Luz María":"OA8KDAACFQ==","Cesar (Padre)":"IAMe","Pedro":"KQsOARU=","Maria (Tía)":"IgsUBB5JXD9TVEBTSA==","Yamilka":"LQ8SFw0=","Michelito":"LRsdRSEIBqyfUQ==","Laura":"LA8VDA1JXDvxnVMf","Cesar (Hijo)":"Mw8JBgkF","Heidy":"IAIFBAIAFQ==","Rancel":"LAcEDQkFHRtd","Amy":"JBQCFBkAEQM=","Ezequiel":"MQsDFwM="};
@@ -113,17 +113,27 @@ const K="angelito2026";
 function dec(s){const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i)^K.charCodeAt(i%K.length);return new TextDecoder().decode(u)}
 
 const API=SUPABASE_URL.replace(/\/$/,"")+"/rest/v1/angelito_claims";
-const H={apikey:SUPABASE_ANON_KEY,Authorization:"Bearer "+SUPABASE_ANON_KEY};
+/* Las llaves nuevas (sb_publishable_…) van solo en "apikey"; las antiguas (eyJ…) también en Authorization */
+const H={apikey:SUPABASE_ANON_KEY};
+if(SUPABASE_ANON_KEY.startsWith("eyJ")) H.Authorization="Bearer "+SUPABASE_ANON_KEY;
+async function why(r,what){
+  let msg=""; try{const j=await r.json(); msg=j.message||j.msg||j.error||JSON.stringify(j)}catch(e){}
+  return new Error(`${what} · HTTP ${r.status}${msg?" · "+msg:""}`);
+}
 async function fetchTaken(){
   const r=await fetch(API+"?select=name",{headers:H});
-  if(!r.ok) throw new Error("read "+r.status);
+  if(!r.ok) throw await why(r,"Leer");
   return new Set((await r.json()).map(x=>x.name));
 }
 async function claim(name){
   const r=await fetch(API,{method:"POST",headers:{...H,"Content-Type":"application/json",Prefer:"return=minimal"},body:JSON.stringify({name})});
   if(r.ok) return "ok";
   if(r.status===409) return "taken";
-  throw new Error("write "+r.status);
+  throw await why(r,"Guardar");
+}
+function detail(e){
+  if(SUPABASE_URL.includes("TU-PROYECTO")||SUPABASE_ANON_KEY.includes("TU-ANON")) return "Falta poner la URL y la llave de Supabase en el archivo.";
+  return e&&e.message&&e.message!=="Failed to fetch" ? e.message : "No hay conexión con Supabase (revisa la URL o tu internet).";
 }
 
 const LS="angelito-2026-yo";
@@ -150,7 +160,7 @@ function renderNames(){
 
 async function refresh(){
   try{ taken=await fetchTaken(); renderNames(); }
-  catch(e){ renderNames(); $("status").textContent="No se pudo conectar. Revisa tu internet y recarga la página."; }
+  catch(e){ renderNames(); $("status").textContent="No se pudo conectar: "+detail(e); }
 }
 
 $("no").onclick=()=>{me=null;show("step-pick");refresh()};
@@ -164,7 +174,7 @@ $("yes").onclick=async()=>{
     }
     save(me); $("hello").textContent="Hola, "+me; show("step-open"); $("env").focus();
   }catch(e){
-    $("confirm-err").textContent="No se pudo conectar. Revisa tu internet e inténtalo otra vez.";
+    $("confirm-err").textContent="No se pudo conectar: "+detail(e);
     $("confirm-err").hidden=false;
   }
   btn.disabled=false;
